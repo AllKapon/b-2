@@ -58,26 +58,15 @@ class Parser:
         """
         subroutineDec: ('constructor'|'function'|'method') ('void'|type) subroutineName '(' parameterList ')' subroutineBody
         """
-        subroutine = {"type": "subroutineDec", "children": []}
-
-        # Analyse du type de sous-routine (constructor, function, method)
-        subroutine['modifier'] = self.process(self.lexer.next()['token'])
-
-        # Type de retour
-        subroutine['returnType'] = self.process(self.lexer.look()['token'])
-
-        # Nom de la sous-routine
-        subroutine['subroutineName'] = self.subroutineName()
-
-        # Paramètres de la sous-routine
+        self.process(self.lexer.next()['token'])  # 'constructor', 'function', or 'method'
+        token = self.lexer.look()['token']
+        if token == 'void' or token in ['int', 'char', 'boolean'] or self.isIdentifier(token):
+            self.process(token)
+        self.subroutineName()
         self.process('(')
-        subroutine['parameters'] = self.parameterList()
+        self.parameterList()
         self.process(')')
-
-        # Corps de la sous-routine
-        subroutine['body'] = self.subroutineBody()
-
-        return subroutine
+        self.subroutineBody()
 
     # Méthodes supplémentaires pour analyser d'autres éléments de la syntaxe du langage Jack
     def type(self):
@@ -263,6 +252,28 @@ class Parser:
 
         return while_statement
 
+    def subroutineCall(self):
+        token = self.lexer.look()
+        if self.lexer.look2()['token'] == '.':
+            self.process(token['token'])
+            self.process('.')
+            self.subroutineName()
+        else:
+            self.subroutineName()
+        self.process('(')
+        self.expressionList()
+        self.process(')')
+
+    def expressionList(self):
+        """
+        expressionList : (expression (',' expression)*)?
+        """
+        if self.lexer.look()['token'] != ')':
+            self.expression()
+            while self.lexer.look()['token'] == ',':
+                self.process(',')
+                self.expression()
+
     def doStatement(self):
         """
         doStatement : 'do' subroutineCall ';'
@@ -309,76 +320,26 @@ class Parser:
             expr['children'].append(self.term())
         return expr
 
+    def op(self):
+        """
+        op : '+'|'-'|'*'|'/'|'&'|'|'|'<'|'>'|'='
+        """
+        token = self.lexer.look()['token']
+        if token in ['+', '-', '*', '/', '&', '|', '<', '>', '=']:
+            self.process(token)  # This will process and write the operator to XML
+        else:
+            self.error(None)
+
     def term(self):
         """
-        term : integerConstant | stringConstant | keywordConstant
-              | varName | varName '[' expression ']' | subroutineCall
-              | '(' expression ')' | unaryOp term
+        term: integerConstant | stringConstant | keywordConstant | varName | varName '[' expression ']' | subroutineCall
         """
-        term_node = {"type": "term", "children": []}
+        term = {"type": "term", "children": []}
         token = self.lexer.look()
-
-        # Identifier (nom de variable)
         if token['type'] == 'identifier':
-            term_node["children"].append(self.process(token['token']))  # Traiter le nom de la variable
-
-            # Gestion du tableau (varName '[' expression ']')
-            if self.lexer.look()['token'] == '[':
-                self.process('[')
-                term_node["children"].append(
-                    {"type": "expression", "children": [self.expression()]})  # Expression entre []
-                self.process(']')
-
-            # Gestion de l'appel de sous-routine (varName '(' expressionList ')')
-            elif self.lexer.look()['token'] == '(':
-                self.process('(')
-                term_node["children"].append({"type": "expressionList", "children": [self.expressionList()]})
-                self.process(')')
-
-            # Gestion de l'appel de méthode (varName '.' subroutineName '(' expressionList ')')
-            elif self.lexer.look()['token'] == '.':
-                self.process('.')
-                term_node["children"].append({"type": "subroutineName", "children": [self.subroutineName()]})
-                self.process('(')
-                term_node["children"].append({"type": "expressionList", "children": [self.expressionList()]})
-                self.process(')')
-
-        # Constantes (integerConstant, stringConstant, keywordConstant)
-        elif token['type'] == 'IntegerConstant':
-            term_node["children"].append(self.process(token['token']))
-
-        elif token['type'] == 'StringConstant':
-            term_node["children"].append(self.process(token['token']))
-
-        elif token['type'] == 'keyword':
-            term_node["children"].append(self.process(token['token']))
-
-        # Expression entre parenthèses
-        elif token['token'] == '(':
-            self.process('(')
-            term_node["children"].append({"type": "expression", "children": [self.expression()]})
-            self.process(')')
-
-        # Opération unaire
-        elif token['token'] in ['-', '~']:
-            term_node["children"].append(self.process(token['token']))
-            term_node["children"].append({"type": "term", "children": [self.term()]})
-
-        else:
-            self.error(token)
-
-        return term_node
-
-    #def term(self):
-    #    """
-    #    term: integerConstant | stringConstant | keywordConstant | varName | varName '[' expression ']' | subroutineCall
-    #    """
-    #    term = {"type": "term", "children": []}
-    #    token = self.lexer.look()
-    #    if token['type'] == 'identifier':
-    #        term['value'] = token['token']
-    #    # Ajoutez des cas supplémentaires pour gérer les autres types de termes
-    #    return term
+            term['value'] = token['token']
+        # Ajoutez des cas supplémentaires pour gérer les autres types de termes
+        return term
 
     def process(self, expected_token):
         token = self.lexer.next()

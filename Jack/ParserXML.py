@@ -18,14 +18,27 @@ class ParserXML:
         class: 'class' className '{' classVarDec* subroutineDec* '}'
         """
         self.xml.write(f"""<class>\n""")
+
+        # Process 'class' keyword
         self.process('class')
+
+        # Process className
         self.className()
+
+        # Process '{'
         self.process('{')
-        while self.lexer.look()['token'] in ['static', 'field']:
-            self.classVarDec()
-        while self.lexer.look()['token'] in ['constructor', 'function', 'method']:
-            self.subroutineDec()
-        self.process('}')
+
+        # Handle classVarDec or subroutineDec
+        while True:
+            token = self.lexer.look()['token']
+            if token in ['static', 'field']:
+                self.classVarDec()
+            elif token in ['constructor', 'function', 'method']:
+                self.subroutineDec()
+            else:
+                break  # Exit the loop if no valid tokens are found
+
+        # Process '}'
         self.process('}')
         self.xml.write(f"""</class>\n""")
 
@@ -61,15 +74,27 @@ class ParserXML:
         subroutineName '(' parameterList ')' subroutineBody
         """
         self.xml.write(f"""<subroutineDec>\n""")
+        # Process the type of subroutine
         self.process(self.lexer.next()['token'])  # 'constructor', 'function', or 'method'
+
         token = self.lexer.look()['token']
         if token == 'void' or token in ['int', 'char', 'boolean'] or self.isIdentifier(token):
             self.process(token)
+        else:
+            self.error(token)  # Handle unexpected token
+
+        # Process the name of the subroutine
         self.subroutineName()
         self.process('(')
+
+        # Process the parameter list
         self.parameterList()
+
         self.process(')')
+
+        # Process the subroutine body
         self.subroutineBody()
+
         self.xml.write(f"""</subroutineDec>\n""")
 
     def parameterList(self):
@@ -260,31 +285,14 @@ class ParserXML:
         """
         self.xml.write("<term>\n")
         token = self.lexer.look()
-        if token['type'] == 'identifier':
-            self.process(token['token'])
-            if self.lexer.look()['token'] == '[':
-                self.process('[')
-                self.expression()
-                self.process(']')
-            elif self.lexer.look()['token'] == '(':
-                self.process('(')
-                self.expressionList()
-                self.process(')')
-            elif self.lexer.look()['token'] == '.':
-                self.process('.')
-                self.subroutineName()
-                self.process('(')
-                self.expressionList()
-                self.process(')')
-        elif token['type'] in ['IntegerConstant', 'StringConstant', 'keyword']:
-            self.process(token['token'])
-        elif token['token'] == '(':
+        if token['token'] == '(':
             self.process('(')
             self.expression()
             self.process(')')
-        elif token['token'] in ['-', '~']:
+        elif token['type'] == 'IntegerConstant':
             self.process(token['token'])
-            self.term()
+        elif self.isIdentifier(token['token']):
+            self.process(token['token'])
         else:
             self.error(token)
         self.xml.write("</term>\n")
@@ -296,18 +304,16 @@ class ParserXML:
         Attention : l'analyse syntaxique ne peut pas distingué className et varName.
             Nous utiliserons la balise <classvarName> pour (className|varName)
         """
-        self.xml.write(f"""<subroutineCall>\n""")
+        self.xml.write("<subroutineCall>\n")
         token = self.lexer.look()
-        if self.lexer.look2()['token'] == '.':
-            self.process(token['token'])
+        self.process(token['token'])  # Subroutine or class/variable name
+        if self.lexer.look()['token'] == '.':
             self.process('.')
-            self.subroutineName()
-        else:
             self.subroutineName()
         self.process('(')
         self.expressionList()
         self.process(')')
-        self.xml.write(f"""</subroutineCall>\n""")
+        self.xml.write("</subroutineCall>\n")
 
     def expressionList(self):
         """
@@ -359,6 +365,7 @@ class ParserXML:
 
     def process(self, str):
         token = self.lexer.next()
+        print(f"Processing token: {token}, expected: {str}")  # Debug info
         if (token is not None and token['token'] == str):
             self.xml.write(f"""<{token['type']}>{token['token']}</{token['type']}>\n""")
         else:
