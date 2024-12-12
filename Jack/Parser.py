@@ -11,24 +11,41 @@ class Parser:
 
     def jackclass(self):
         """
-        class: 'class' className '{' classVarDec* subroutineDec* '}'
+        jackclass: 'class' className '{' classVarDec* subroutineDec* '}'
         """
-        tree = {"type": "class", "children": []}  # Arbre principal représentant la classe
+        tree = {"type": "class", "children": []}
 
-        # Analyse de la déclaration de classe
+        print("*** Parsing class ***")
+
+        # Match 'class' keyword
         self.process('class')
-        tree['className'] = self.className()
-        self.process('{')
 
-        # Ajoute les variables de classe (field, static)
+        # Parse the class name
+        tree['className'] = self.className()
+
+        # Expect '{' for the beginning of the class body
+        token = self.lexer.look()
+        if token['token'] != '{':
+            self.error(token, '{')  # If '{' is missing, this throws the appropriate SyntaxError.
+        self.process('{')  # Process the opening '{'
+
+        # Parse class-level variable declarations ('static' or 'field')
         while self.lexer.look()['token'] in ['static', 'field']:
+            print("*** Parsing classVarDec ***")
             tree['children'].append(self.classVarDec())
 
-        # Ajoute les sous-routines (constructor, function, method)
+            # Parse subroutine declarations ('constructor', 'function', or 'method')
         while self.lexer.look()['token'] in ['constructor', 'function', 'method']:
+            print("*** Parsing subroutineDec ***")
             tree['children'].append(self.subroutineDec())
 
-        self.process('}')
+            # Expect '}'
+        token = self.lexer.look()
+        if token['token'] != '}':
+            self.error(token, '}')
+        self.process('}')  # Close the class
+
+        print("*** Finished parsing class ***")
         return tree
 
     def classVarDec(self):
@@ -56,19 +73,38 @@ class Parser:
 
     def subroutineDec(self):
         """
-        subroutineDec: ('constructor'|'function'|'method') ('void'|type) subroutineName '(' parameterList ')' subroutineBody
+        subroutineDec: ('constructor' | 'function' | 'method') ('void' | type) subroutineName '(' parameterList ')' subroutineBody
         """
-        self.process(self.lexer.next()['token'])  # 'constructor', 'function', or 'method'
-        token = self.lexer.look()['token']
-        if token == 'void' or token in ['int', 'char', 'boolean'] or self.isIdentifier(token):
-            self.process(token)
-        self.subroutineName()
-        self.process('(')
-        self.parameterList()
-        self.process(')')
-        self.subroutineBody()
+        subroutine = {"type": "subroutineDec", "children": []}
 
-    # Méthodes supplémentaires pour analyser d'autres éléments de la syntaxe du langage Jack
+        # Subroutine type ('constructor', 'function', or 'method')
+        subroutineType = self.process(self.lexer.look()['token'])  # process subroutine type
+        subroutine['subroutineType'] = subroutineType
+
+        # Return type ('void' or a type)
+        returnType = self.type()  # returns either 'void' or a type like 'int', 'boolean', etc.
+        subroutine['returnType'] = returnType
+
+        # Subroutine name (must be an identifier)
+        subroutineName = self.subroutineName()  # process subroutine name
+        subroutine['subroutineName'] = subroutineName
+
+        # Process the opening parenthesis '(' for parameter list
+        self.process('(')
+
+        # Parameter list (can be empty or contain parameters)
+        subroutine['parameters'] = self.parameterList()
+
+        # Process the closing parenthesis ')'
+        self.process(')')
+
+        # Subroutine body (should handle the curly braces `{}`)
+        subroutine['body'] = self.subroutineBody()
+
+        return subroutine
+
+
+        # Méthodes supplémentaires pour analyser d'autres éléments de la syntaxe du langage Jack
     def type(self):
         """
         type: 'int' | 'char' | 'boolean' | className
@@ -103,11 +139,10 @@ class Parser:
         """
         className: identifier
         """
-        token = self.lexer.look()['token']
-        if self.isIdentifier(token):
-            return token
-        else:
-            self.error(None)
+        token = self.lexer.look()
+        if not self.isIdentifier(token['token']):
+            self.error(token, "identifier")
+        return self.lexer.next()['token']
 
     def parameterList(self):
         """
@@ -342,18 +377,23 @@ class Parser:
         return term
 
     def process(self, expected_token):
-        token = self.lexer.next()
+        token = self.lexer.next()  # Get the next token
+        print(f"Expecting token: '{expected_token}', got: '{token}'")  # Debug log
         if token and token['token'] == expected_token:
             return token['token']
         else:
-            self.error(token)
+            self.error(token, expected_token)  # Error reporting
 
-    def error(self, token):
+    def error(self, token, expected_token=None):
         if token is None:
             print("Syntax error: unexpected end of file")
         else:
-            print(f"SyntaxError (line={token['line']}, col={token['col']}): {token['token']}")
+            error_message = f"SyntaxError (line={token['line']}, col={token['col']}): {token['token']}"
+            if expected_token:
+                error_message += f" (expected: '{expected_token}')"
+            print(error_message)
         exit()
+
 
     def isIdentifier(self, token):
         """Vérifie si un token est un identifiant valide"""
@@ -362,6 +402,16 @@ class Parser:
 
 if __name__ == "__main__":
     file = sys.argv[1]
+    print(f"Parsing file: {file}")
+
+    # Lire et afficher le contenu du fichier
+    with open(file, 'r') as f:
+        content = f.read()
+    print("File content:")
+    print(content)
+    print("-" * 40)
+
     parser = Parser(file)
-    ast = parser.jackclass()  # Analyse la classe principale
-    print(ast)  # Affiche l'arbre syntaxique simplifié
+    ast = parser.jackclass()
+    print("AST:")
+    print(ast)

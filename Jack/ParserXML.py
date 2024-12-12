@@ -1,373 +1,280 @@
 import sys
-import re
 import Lexer
 
 
-
-
 class ParserXML:
-    """No comment"""
+    """Parser for Jack programming language to produce an XML representation"""
 
     def __init__(self, file):
         self.lexer = Lexer.Lexer(file)
         self.xml = open(file[0:-5] + ".xml", "w")
-        self.xml.write('<?xml version="1.0" encoding="UTF-8"?>')
+        self.xml.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+        self.token = None  # For storing the current token from the lexer
+        self.advance()  # Initialize the first token
+
+    def advance(self):
+        """Advances to the next token."""
+        self.token = self.lexer.next()
 
     def jackclass(self):
-        """
-        class: 'class' className '{' classVarDec* subroutineDec* '}'
-        """
-        self.xml.write(f"""<class>\n""")
+        self.xml.write(f"<class>\n")
+        self.process('class')  # 'class'
+        self.className()  # className
+        self.process('{')  # '{'
 
-        # Process 'class' keyword
-        self.process('class')
+        while self.token and self.token['token'] in ['static', 'field']:
+            self.classVarDec()  # classVarDec*
 
-        # Process className
-        self.className()
+        while self.token and self.token['token'] in ['constructor', 'function', 'method']:
+            self.subroutineDec()  # subroutineDec*
 
-        # Process '{'
-        self.process('{')
-
-        # Handle classVarDec or subroutineDec
-        while True:
-            token = self.lexer.look()['token']
-            if token in ['static', 'field']:
-                self.classVarDec()
-            elif token in ['constructor', 'function', 'method']:
-                self.subroutineDec()
-            else:
-                break  # Exit the loop if no valid tokens are found
-
-        # Process '}'
-        self.process('}')
-        self.xml.write(f"""</class>\n""")
+        self.process('}')  # '}'
+        self.xml.write(f"</class>\n")
 
     def classVarDec(self):
-        """
-        classVarDec: ('static'| 'field') type varName (',' varName)* ';'
-        """
-        self.xml.write(f"""<classVarDec>\n""")
-        self.process(self.lexer.next()['token'])  # 'static' or 'field'
-        self.type()
-        self.varName()
-        while self.lexer.look()['token'] == ',':
+        self.xml.write(f"<classVarDec>\n")
+        kind = self.token['token']  # 'static' or 'field'
+        self.process(kind)
+        self.type()  # type
+        self.varName()  # varName
+
+        while self.token and self.token['token'] == ',':
             self.process(',')
-            self.varName()
-        self.process(';')
-        self.xml.write(f"""</classVarDec>\n""")
+            self.varName()  # varName
+
+        self.process(';')  # ';'
+        self.xml.write(f"</classVarDec>\n")
 
     def type(self):
-        """
-        type: 'int'|'char'|'boolean'|className
-        """
-        self.xml.write(f"""<type>\n""")
-        token = self.lexer.look()['token']
-        if token in ['int', 'char', 'boolean'] or self.isIdentifier(token):
-            self.process(token)
+        """ Handles types in Jack"""
+        self.xml.write(f"<type>\n")
+        if self.token['token'] in ['int', 'char', 'boolean']:
+            self.process(self.token['token'])  # 'int', 'char', 'boolean'
         else:
-            self.error(None)
-        self.xml.write(f"""</type>\n""")
+            self.className()  # className
+        self.xml.write(f"</type>\n")
 
     def subroutineDec(self):
-        """
-        subroutineDec: ('constructor'| 'function'|'method') ('void'|type)
-        subroutineName '(' parameterList ')' subroutineBody
-        """
-        self.xml.write(f"""<subroutineDec>\n""")
-        # Process the type of subroutine
-        self.process(self.lexer.next()['token'])  # 'constructor', 'function', or 'method'
-
-        token = self.lexer.look()['token']
-        if token == 'void' or token in ['int', 'char', 'boolean'] or self.isIdentifier(token):
-            self.process(token)
+        self.xml.write(f"<subroutineDec>\n")
+        kind = self.token['token']  # 'constructor', 'function', 'method'
+        self.process(kind)
+        if self.token['token'] in ['void']:
+            self.process('void')  # 'void'
         else:
-            self.error(token)  # Handle unexpected token
+            self.type()  # type
 
-        # Process the name of the subroutine
-        self.subroutineName()
-        self.process('(')
-
-        # Process the parameter list
-        self.parameterList()
-
-        self.process(')')
-
-        # Process the subroutine body
-        self.subroutineBody()
-
-        self.xml.write(f"""</subroutineDec>\n""")
+        self.subroutineName()  # subroutineName
+        self.process('(')  # '('
+        self.parameterList()  # parameterList
+        self.process(')')  # ')'
+        self.subroutineBody()  # subroutineBody
+        self.xml.write(f"</subroutineDec>\n")
 
     def parameterList(self):
-        """
-        parameterList: ((type varName) (',' type varName)*)?
-        """
-        self.xml.write(f"""<parameterList>\n""")
-        if self.lexer.look()['token'] in ['int', 'char', 'boolean'] or self.isIdentifier(self.lexer.look()['token']):
-            self.type()
-            self.varName()
-            while self.lexer.look()['token'] == ',':
+        self.xml.write(f"<parameterList>\n")
+        if self.token and self.token['token'] in ['int', 'char', 'boolean']:
+            self.type()  # type
+            self.varName()  # varName
+            while self.token and self.token['token'] == ',':
                 self.process(',')
-                self.type()
-                self.varName()
-        self.xml.write(f"""</parameterList>\n""")
+                self.type()  # type
+                self.varName()  # varName
+        self.xml.write(f"</parameterList>\n")
 
     def subroutineBody(self):
-        """
-        subroutineBody: '{' varDec* statements '}'
-        """
-        self.xml.write(f"""<subroutineBody>\n""")
-        self.process('{')
-        while self.lexer.look()['token'] == 'var':
-            self.varDec()
-        self.statements()
-        self.process('}')
-        self.xml.write(f"""</subroutineBody>\n""")
+        self.xml.write(f"<subroutineBody>\n")
+        self.process('{')  # '{'
+        while self.token and self.token['token'] == 'var':
+            self.varDec()  # varDec*
+        self.statements()  # statements
+        self.process('}')  # '}'
+        self.xml.write(f"</subroutineBody>\n")
 
     def varDec(self):
-        """
-        varDec: 'var' type varName (',' varName)* ';'
-        """
-        self.xml.write(f"""<varDec>\n""")
-        self.process('var')
-        self.type()
-        self.varName()
-        while self.lexer.look()['token'] == ',':
+        self.xml.write(f"<varDec>\n")
+        self.process('var')  # 'var'
+        self.type()  # type
+        self.varName()  # varName
+
+        while self.token and self.token['token'] == ',':
             self.process(',')
-            self.varName()
-        self.process(';')
-        self.xml.write(f"""</varDec>\n""")
+            self.varName()  # varName
+        self.process(';')  # ';'
+        self.xml.write(f"</varDec>\n")
 
     def className(self):
-        """
-        className: identifier
-        """
-        self.xml.write(f"""<className>""")
-        token = self.lexer.look()['token']
-        if self.isIdentifier(token):
-            self.process(token)  # This will process and write the class name to XML
-        else:
-            self.error(None)
-        self.xml.write(f"""</className>""")
+        self.xml.write(f"<className>")
+        self.process(self.token['token'])  # identifier
+        self.xml.write(f"</className>\n")
 
     def subroutineName(self):
-        """
-        subroutineName: identifier
-        """
-        self.xml.write(f"""<subroutineName>""")
-        token = self.lexer.look()['token']
-        if self.isIdentifier(token):
-            self.process(token)  # This will process and write the subroutine name to XML
-        else:
-            self.error(None)
-        self.xml.write(f"""</subroutineName>""")
+        self.xml.write(f"<subroutineName>")
+        self.process(self.token['token'])  # identifier
+        self.xml.write(f"</subroutineName>\n")
 
     def varName(self):
-        """
-        varName: identifier
-        """
-        self.xml.write(f"""<varName>""")
-        token = self.lexer.look()['token']
-        if self.isIdentifier(token):
-            self.process(token)  # This will process and write the variable name to XML
-        else:
-            self.error(None)
-        self.xml.write(f"""</varName>""")
+        self.xml.write(f"<varName>")
+        self.process(self.token['token'])  # identifier
+        self.xml.write(f"</varName>\n")
 
     def statements(self):
-        """
-        statements : statements*
-        """
-        self.xml.write("<statements>\n")
-        while self.lexer.look()['token'] in ['let', 'if', 'while', 'do', 'return']:
-            if self.lexer.look()['token'] == 'let':
-                self.letStatement()
-            elif self.lexer.look()['token'] == 'if':
-                self.ifStatement()
-            elif self.lexer.look()['token'] == 'while':
-                self.whileStatement()
-            elif self.lexer.look()['token'] == 'do':
-                self.doStatement()
-            elif self.lexer.look()['token'] == 'return':
-                self.returnStatement()
-        self.xml.write("</statements>\n")
+        self.xml.write(f"<statements>\n")
+        while self.token and self.token['token'] in ['let', 'if', 'while', 'do', 'return']:
+            self.statement()  # statement*
+        self.xml.write(f"</statements>\n")
 
+    def statement(self):
+        self.xml.write(f"<statement>\n")
+        if self.token['token'] == 'let':
+            self.letStatement()  # letStatement
+        elif self.token['token'] == 'if':
+            self.ifStatement()  # ifStatement
+        elif self.token['token'] == 'while':
+            self.whileStatement()  # whileStatement
+        elif self.token['token'] == 'do':
+            self.doStatement()  # doStatement
+        elif self.token['token'] == 'return':
+            self.returnStatement()  # returnStatement
+        self.xml.write(f"</statement>\n")
 
     def letStatement(self):
-        """
-        letStatement : 'let' varName ('[' expression ']')? '=' expression ';'
-        """
-        self.xml.write("<letStatement>\n")
-        self.process('let')
-        self.varName()
-        if self.lexer.look()['token'] == '[':
-            self.process('[')
-            self.expression()
-            self.process(']')
-        self.process('=')
-        self.expression()
-        self.process(';')
-        self.xml.write("</letStatement>\n")
+        self.xml.write(f"<letStatement>\n")
+        self.process('let')  # 'let'
+        self.varName()  # varName
+
+        if self.token and self.token['token'] == '[':
+            self.process('[')  # '['
+            self.expression()  # expression
+            self.process(']')  # ']'
+
+        self.process('=')  # '='
+        self.expression()  # expression
+        self.process(';')  # ';'
+        self.xml.write(f"</letStatement>\n")
 
     def ifStatement(self):
-        """
-        ifStatement : 'if' '(' expression ')' '{' statements '}' ('else' '{' statements '}')?
-        """
-        self.xml.write("<ifStatement>\n")
-        self.process('if')
-        self.process('(')
-        self.expression()
-        self.process(')')
-        self.process('{')
-        self.statements()
-        self.process('}')
-        if self.lexer.look()['token'] == 'else':
-            self.process('else')
-            self.process('{')
-            self.statements()
-            self.process('}')
-        self.xml.write("</ifStatement>\n")
+        self.xml.write(f"<ifStatement>\n")
+        self.process('if')  # 'if'
+        self.process('(')  # '('
+        self.expression()  # expression
+        self.process(')')  # ')'
+        self.process('{')  # '{'
+        self.statements()  # statements
+        self.process('}')  # '}'
+
+        if self.token and self.token['token'] == 'else':
+            self.process('else')  # 'else'
+            self.process('{')  # '{'
+            self.statements()  # statements
+            self.process('}')  # '}'
+
+        self.xml.write(f"</ifStatement>\n")
 
     def whileStatement(self):
-        """
-        whileStatement : 'while' '(' expression ')' '{' statements '}'
-        """
-        self.xml.write("<whileStatement>\n")
-        self.process('while')
-        self.process('(')
-        self.expression()
-        self.process(')')
-        self.process('{')
-        self.statements()
-        self.process('}')
-        self.xml.write("</whileStatement>\n")
+        self.xml.write(f"<whileStatement>\n")
+        self.process('while')  # 'while'
+        self.process('(')  # '('
+        self.expression()  # expression
+        self.process(')')  # ')'
+        self.process('{')  # '{'
+        self.statements()  # statements
+        self.process('}')  # '}'
+        self.xml.write(f"</whileStatement>\n")
 
     def doStatement(self):
-        """
-        doStatement : 'do' subroutineCall ';'
-        """
-        self.xml.write("<doStatement>\n")
-        self.process('do')
-        self.subroutineCall()
-        self.process(';')
-        self.xml.write("</doStatement>\n")
+        self.xml.write(f"<doStatement>\n")
+        self.process('do')  # 'do'
+        self.subroutineCall()  # subroutineCall
+        self.process(';')  # ';'
+        self.xml.write(f"</doStatement>\n")
 
     def returnStatement(self):
-        """
-        returnStatement : 'return' expression? ';'
-        """
-        self.xml.write("<returnStatement>\n")
-        self.process('return')
-        if self.lexer.look()['token'] != ';':
-            self.expression()
-        self.process(';')
-        self.xml.write("</returnStatement>\n")
-
-    def isIdentifier(self, token):
-        """Check if a token is a valid identifier."""
-        return re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', token) is not None
+        self.xml.write(f"<returnStatement>\n")
+        self.process('return')  # 'return'
+        if self.token and self.token['token'] != ';':
+            self.expression()  # expression
+        self.process(';')  # ';'
+        self.xml.write(f"</returnStatement>\n")
 
     def expression(self):
-        """
-        expression : term (op term)*
-        """
-        self.xml.write("<expression>\n")
-        self.term()
-        while self.lexer.look()['token'] in ['+', '-', '*', '/', '&', '|', '<', '>', '=']:
-            self.op()
-            self.term()
-        self.xml.write("</expression>\n")
+        self.xml.write(f"<expression>\n")
+        self.term()  # term
+        while self.token and self.token['token'] in ['+', '-', '*', '/', '&', '|', '<', '>', '=']:
+            self.op()  # op
+            self.term()  # term
+        self.xml.write(f"</expression>\n")
 
     def term(self):
-        """
-        term : integerConstant|stringConstant|keywordConstant
-                |varName|varName '[' expression ']'|subroutineCall
-                | '(' expression ')' | unaryOp term
-        """
-        self.xml.write("<term>\n")
-        token = self.lexer.look()
-        if token['token'] == '(':
+        self.xml.write(f"<term>\n")
+        if self.token['type'] == 'IntegerConstant':
+            self.process(self.token['token'])  # integerConstant
+        elif self.token['type'] == 'StringConstant':
+            self.process(self.token['token'])  # stringConstant
+        elif self.token['token'] in ['true', 'false', 'null', 'this']:
+            self.KeywordConstant()  # keywordConstant
+        elif self.token['type'] == 'identifier':
+            self.varName()  # varName
+            if self.token and self.token['token'] == '[':
+                self.process('[')
+                self.expression()  # expression
+                self.process(']')
+            elif self.token and self.token['token'] == '.':
+                self.subroutineCall()  # subroutineCall
+        elif self.token and self.token['token'] == '(':
             self.process('(')
-            self.expression()
+            self.expression()  # expression
             self.process(')')
-        elif token['type'] == 'IntegerConstant':
-            self.process(token['token'])
-        elif self.isIdentifier(token['token']):
-            self.process(token['token'])
-        else:
-            self.error(token)
-        self.xml.write("</term>\n")
+        elif self.token['token'] in ['-', '~']:
+            self.unaryOp()  # unaryOp
+            self.term()  # term
+        self.xml.write(f"</term>\n")
 
     def subroutineCall(self):
-        """
-        subroutineCall : subroutineName '(' expressionList ')'
-                | (className|varName) '.' subroutineName '(' expressionList ')'
-        Attention : l'analyse syntaxique ne peut pas distingué className et varName.
-            Nous utiliserons la balise <classvarName> pour (className|varName)
-        """
-        self.xml.write("<subroutineCall>\n")
-        token = self.lexer.look()
-        self.process(token['token'])  # Subroutine or class/variable name
-        if self.lexer.look()['token'] == '.':
-            self.process('.')
-            self.subroutineName()
-        self.process('(')
-        self.expressionList()
-        self.process(')')
-        self.xml.write("</subroutineCall>\n")
+        self.xml.write(f"<subroutineCall>\n")
+
+        self.process(self.token['token'])  # objectName or subroutineName
+        if self.token and self.token['token'] == '.':
+            self.process('.')  # Consume the '.'
+            if self.token and self.token['type'] == 'identifier':  # This ensures a method name exists
+                self.process(self.token['token'])  # Read subroutineName
+            else:
+                self.error(self.token)  # This ensures we display the error if no method is detected
+        self.process('(')  # Consume '('
+        self.expressionList()  # Process the arguments
+        self.process(')')  # Consume ')'
+
+        self.xml.write(f"</subroutineCall>\n")
 
     def expressionList(self):
-        """
-        expressionList : (expression (',' expression)*)?
-        """
-        self.xml.write("<expressionList>\n")
-        if self.lexer.look()['token'] != ')':
-            self.expression()
-            while self.lexer.look()['token'] == ',':
+        self.xml.write(f"<expressionList>\n")
+        if self.token and self.token['type'] in ['IntegerConstant', 'StringConstant', 'identifier', 'keyword']:
+            self.expression()  # expression
+            while self.token and self.token['token'] == ',':
                 self.process(',')
-                self.expression()
-        self.xml.write("</expressionList>\n")
+                self.expression()  # expression
+        self.xml.write(f"</expressionList>\n")
 
     def op(self):
-        """
-        op : '+'|'-'|'*'|'/'|'&'|'|'|'<'|'>'|'='
-        """
-        self.xml.write(f"""<op>""")
-        token = self.lexer.look()['token']
-        if token in ['+', '-', '*', '/', '&', '|', '<', '>', '=']:
-            self.process(token)  # This will process and write the operator to XML
-        else:
-            self.error(None)
-        self.xml.write(f"""</op>""")
+        self.xml.write(f"<op>\n")
+        self.process(self.token['token'])  # op
+        self.xml.write(f"</op>\n")
 
     def unaryOp(self):
-        """
-        unaryop : '-'|'~'
-        """
-        self.xml.write(f"""<unaryop>""")
-        token = self.lexer.look()['token']
-        if token in ['-', '~']:
-            self.process(token)  # This will process and write the unary operator to XML
-        else:
-            self.error(None)
-        self.xml.write(f"""</unaryop>""")
+        self.xml.write(f"<unaryOp>\n")
+        self.process(self.token['token'])  # unaryOp
+        self.xml.write(f"</unaryOp>\n")
 
     def KeywordConstant(self):
-        """
-        KeyWordConstant : 'true'|'false'|'null'|'this'
-        """
-        self.xml.write(f"""<KeywordConstant>""")
-        token = self.lexer.look()['token']
-        if token in ['true', 'false', 'null', 'this']:
-            self.process(token)  # This will process and write the keyword constant to XML
-        else:
-            self.error(None)
-        self.xml.write(f"""</KeywordConstant>""")
+        self.xml.write(f"<keyWordConstant>\n")
+        self.process(self.token['token'])  # keyword constant (true | false | null | this)
+        self.xml.write(f"</keyWordConstant>\n")
 
     def process(self, str):
-        token = self.lexer.next()
-        print(f"Processing token: {token}, expected: {str}")  # Debug info
-        if (token is not None and token['token'] == str):
-            self.xml.write(f"""<{token['type']}>{token['token']}</{token['type']}>\n""")
+        token = self.token
+        print(f"Processing token: {token}")  # Ajoutez cette ligne pour déboguer
+        if token is not None and token['token'] == str:
+            self.xml.write(f"<{token['type']}>{token['token']}</{token['type']}>\n")
+            self.advance()  # Move to the next token
         else:
             self.error(token)
 
