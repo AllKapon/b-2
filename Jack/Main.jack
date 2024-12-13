@@ -1,6 +1,12 @@
-class Main {
-    function void main() {
-        do Output.printInt(1 + (2 * 3));
+class Countdown {
+    function void start(int startNumber) {
+        var int i;
+
+        let i = startNumber;
+        while (i > 0) {
+            do Output.printInt(1 + (2 * 3));
+            let i = i - 1; // Decrement i
+        }
         return;
     }
 }
