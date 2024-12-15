@@ -2,17 +2,13 @@ import sys
 import Lexer
 import todot
 
+
 class Parser:
     """A parser for the Jack programming language."""
 
     def __init__(self, file):
         self.lexer = Lexer.Lexer(file)
-        self.current_token = None
-        self.advance()  # Load the first token
 
-    def advance(self):
-        """Advance to the next token."""
-        self.current_token = self.lexer.next()
 
     def jackclass(self):
         """
@@ -21,103 +17,77 @@ class Parser:
         self.process('class')
         class_name = self.className()
         self.process('{')
-        class_var_decs = []
-        while self.current_token and self.current_token['token'] in ['static', 'field']:
-            class_var_decs.append(self.classVarDec())
-        subroutine_decs = []
-        while self.current_token and self.current_token['token'] in ['constructor', 'function', 'method']:
-            subroutine_decs.append(self.subroutineDec())
+        class_vars = []
+        while self.lookahead('static', 'field'):
+            class_vars.append(self.classVarDec())
+        subroutines = []
+        while self.lookahead('constructor', 'function', 'method'):
+            subroutines.append(self.subroutineDec())
         self.process('}')
-        return {
-            'type': 'class',
-            'className': class_name,
-            'classVarDecs': class_var_decs,
-            'subroutineDecs': subroutine_decs
-        }
+        return {'type': 'class', 'name': class_name, 'classVarDec': class_vars, 'subroutineDec': subroutines}
 
     def classVarDec(self):
         """
         classVarDec: ('static'| 'field') type varName (',' varName)* ';'
         """
-        kind = self.current_token['token']
-        self.advance()  # Move to the type
+        var_kind = self.lexer.next()['token']
         var_type = self.type()
-        var_names = [self.varName()]
-        while self.current_token and self.current_token['token'] == ',':
+        vars = [self.varName()]
+        while self.lookahead(','):
             self.process(',')
-            var_names.append(self.varName())
+            vars.append(self.varName())
         self.process(';')
-        return {
-            'type': 'classVarDec',
-            'kind': kind,
-            'varType': var_type,
-            'varNames': var_names
-        }
+        return {'type': 'classVarDec', 'kind': var_kind, 'varType': var_type, 'vars': vars}
 
     def type(self):
         """
         type: 'int'|'char'|'boolean'|className
         """
-        if self.current_token['token'] in ['int', 'char', 'boolean']:
-            type_name = self.current_token['token']
-            self.advance()
-            return type_name
-        else:
-            return self.className()
+        if self.lookahead('int', 'char', 'boolean'):
+            return self.lexer.next()['token']
+        return self.className()
 
     def subroutineDec(self):
         """
         subroutineDec: ('constructor'| 'function'|'method') ('void'|type)
         subroutineName '(' parameterList ')' subroutineBody
         """
-        subroutine_kind = self.current_token['token']
-        self.advance()  # Move to return type
-        return_type = self.type() if self.current_token['token'] != 'void' else 'void'
-        self.advance()  # Move to subroutine name
-        subroutine_name = self.subroutineName()
+        subroutine_type = self.lexer.next()['token']
+        return_type = self.lexer.next()['token'] if self.lookahead('void') else self.type()
+        name = self.subroutineName()
         self.process('(')
-        parameters = self.parameterList()
+        params = self.parameterList()
         self.process(')')
         body = self.subroutineBody()
-        return {
-            'type': 'subroutineDec',
-            'subroutineKind': subroutine_kind,
-            'returnType': return_type,
-            'subroutineName': subroutine_name,
-            'parameters': parameters,
-            'body': body
-        }
+        return {'type': 'subroutineDec', 'subroutineType': subroutine_type, 'returnType': return_type, 'name': name, 'parameters': params, 'body': body}
 
     def parameterList(self):
         """
         parameterList: ((type varName) (',' type varName)*)?
         """
-        parameters = []
-        if self.current_token and self.current_token['token'] != ')':
-            while True:
+        params = []
+        if not self.lookahead(')'):
+            param_type = self.type()
+            param_name = self.varName()
+            params.append({'type': param_type, 'name': param_name})
+            while self.lookahead(','):
+                self.process(',')
                 param_type = self.type()
                 param_name = self.varName()
-                parameters.append({'type': param_type, 'name': param_name})
-                if self.current_token['token'] != ',':
-                    break
-                self.process(',')
-        return parameters
+                params.append({'type': param_type, 'name': param_name})
+        return params
 
     def subroutineBody(self):
         """
         subroutineBody: '{' varDec* statements '}'
         """
         self.process('{')
-        var_decs = []
-        while self.current_token and self.current_token['token'] == 'var':
-            var_decs.append(self.varDec())
+        vars = []
+        while self.lookahead('var'):
+            vars.append(self.varDec())
         statements = self.statements()
         self.process('}')
-        return {
-            'type': 'subroutineBody',
-            'varDecs': var_decs,
-            'statements': statements
-        }
+        return {'type': 'subroutineBody', 'vars': vars, 'statements': statements}
 
     def varDec(self):
         """
@@ -125,85 +95,75 @@ class Parser:
         """
         self.process('var')
         var_type = self.type()
-        var_names = [self.varName()]
-        while self.current_token and self.current_token['token'] == ',':
+        vars = [self.varName()]
+        while self.lookahead(','):
             self.process(',')
-            var_names.append(self.varName())
+            vars.append(self.varName())
         self.process(';')
-        return {
-            'type': 'varDec',
-            'varType': var_type,
-            'varNames': var_names
-        }
+        return {'type': 'varDec', 'varType': var_type, 'vars': vars}
+
 
     def className(self):
         """
         className: identifier
         """
-        name = self.varName()
-        return name
+        return self.processIdentifier()
 
     def subroutineName(self):
-        if self.current_token['type'] == 'identifier':
-            name = self.current_token
-            self.advance()  # Move to the next token
-            return name
-        raise SyntaxError("Expected a subroutine name")
+        """
+        subroutineName: identifier
+        """
+        return self.processIdentifier()
 
     def varName(self):
         """
         varName: identifier
         """
-        token = self.current_token
-        self.process(token['token'])  # Consume the varName token
-        return token['token']
+        return self.processIdentifier()
 
     def statements(self):
         """
         statements : statement*
         """
-        statement_list = []
-        while self.current_token and self.current_token['token'] in ['let', 'if', 'while', 'do', 'return']:
-            statement_list.append(self.statement())
-        return statement_list
+        stmts = []
+        while self.lookahead('let', 'if', 'while', 'do', 'return'):
+            stmts.append(self.statement())
+        return stmts
 
     def statement(self):
         """
-        statement : letStatement | ifStatement | whileStatement | doStatement | returnStatement
+        statement : letStatement|ifStatement|whileStatement|doStatement|returnStatement
         """
-        if self.current_token['token'] == 'let':
+        if self.lookahead('let'):
             return self.letStatement()
-        elif self.current_token['token'] == 'if':
+        elif self.lookahead('if'):
             return self.ifStatement()
-        elif self.current_token['token'] == 'while':
+        elif self.lookahead('while'):
             return self.whileStatement()
-        elif self.current_token['token'] == 'do':
+        elif self.lookahead('do'):
             return self.doStatement()
-        elif self.current_token['token'] == 'return':
+        elif self.lookahead('return'):
             return self.returnStatement()
         else:
-            self.error(self.current_token)
+            self.error(self.lexer.look())
 
     def letStatement(self):
         """
         letStatement : 'let' varName ('[' expression ']')? '=' expression ';'
         """
         self.process('let')
-        var_name = self.varName()
-        expr = None
-        if self.current_token['token'] == '[':
+        name = self.varName()
+        print(f"Parsed variable name: {name}")  # Debugging line
+        index = None
+        if self.lookahead('['):
             self.process('[')
-            expr = self.expression()
+            index = self.expression()
             self.process(']')
         self.process('=')
-        value_expr = self.expression()
+        value = self.expression()
+        print(f"Parsed expression value: {value}")  # Debugging line
         self.process(';')
-        return {
-            'type': 'letStatement',
-            'varName': var_name,
-            'indexExpr': expr,
-            'valueExpr': value_expr
-        }
+        return {'type': 'letStatement', 'name': name, 'index': index, 'value': value}
 
     def ifStatement(self):
         """
@@ -214,20 +174,16 @@ class Parser:
         condition = self.expression()
         self.process(')')
         self.process('{')
-        then_statements = self.statements()
+        if_statements = self.statements()
         self.process('}')
         else_statements = None
-        if self.current_token and self.current_token['token'] == 'else':
+        if self.lookahead('else'):
             self.process('else')
             self.process('{')
             else_statements = self.statements()
             self.process('}')
-        return {
-            'type': 'ifStatement',
-            'condition': condition,
-            'thenStatements': then_statements,
-            'elseStatements': else_statements
-        }
+        return {'type': 'ifStatement', 'condition': condition, 'ifStatements': if_statements,
+                'elseStatements': else_statements}
 
     def whileStatement(self):
         """
@@ -238,62 +194,19 @@ class Parser:
         condition = self.expression()
         self.process(')')
         self.process('{')
-        body_statements = self.statements()
+        body = self.statements()
         self.process('}')
-        return {
-            'type': 'whileStatement',
-            'condition': condition,
-            'bodyStatements': body_statements
-        }
+        return {'type': 'whileStatement', 'condition': condition, 'body': body}
 
     def doStatement(self):
-        # Process 'do' keyword
-        self.process('do')  # Consume 'do'
-
-        # Process the identifier (class or object name)
-        if self.current_token['type'] != 'identifier':
-            raise SyntaxError(f"Expected identifier after 'do', found {self.current_token['token']}")
-        identifier = self.current_token['token']  # Store the identifier (e.g., 'Output')
-        self.advance()  # Move to the next token
-
-        # Process '.' symbol
-        if self.current_token['token'] != '.':
-            raise SyntaxError(f"Expected '.' after identifier, found {self.current_token['token']}")
-        self.advance()  # Consume '.'
-
-        # Process the method name (another identifier)
-        if self.current_token['type'] != 'identifier':
-            raise SyntaxError(f"Expected method name after '.', found {self.current_token['token']}")
-        method_name = self.current_token['token']  # Store the method name (e.g., 'printString')
-        self.advance()  # Move to the next token
-
-        # Process '(' symbol
-        if self.current_token['token'] != '(':
-            raise SyntaxError(f"Expected '(' after method name, found {self.current_token['token']}")
-        self.advance()  # Consume '('
-
-        # Process the argument list (or none)
-        args = self.expressionList()  # Parse the argument list
-
-        # Process ')' symbol
-        if self.current_token['token'] != ')':
-            raise SyntaxError(f"Expected ')' after arguments, found {self.current_token['token']}")
-        self.advance()  # Consume ')'
-
-        # Process ';' symbol
-        if self.current_token['token'] != ';':
-            raise SyntaxError(f"Expected ';' at the end of 'do' statement, found {self.current_token['token']}")
-        self.advance()  # Consume ';'
-
-        print(f"Current token: {self.current_token}, Expected: identifier")
-
-        # Return the parsed 'do' statement as a dictionary or AST node
-        return {
-            'type': 'doStatement',
-            'object': identifier,
-            'method': method_name,
-            'arguments': args
-        }
+        """
+        doStatement : 'do' subroutineCall ';'
+        """
+        self.process('do')
+        print(f"Expecting subroutine call after 'do'")
+        call = self.subroutineCall()
+        self.process(';')
+        return {'type': 'doStatement', 'call': call}
 
     def returnStatement(self):
         """
@@ -301,161 +214,222 @@ class Parser:
         """
         self.process('return')
         expr = None
-        if self.current_token and self.current_token['token'] != ';':
+        if not self.lookahead(';'):
             expr = self.expression()
         self.process(';')
-        return {
-            'type': 'returnStatement',
-            'expression': expr
-        }
+        return {'type': 'returnStatement', 'expression': expr}
 
     def expression(self):
         """
-        expression : term (op term)*
+        Parses an expression.
+        expression: term (op term)*
         """
-        terms = [self.term()]
-        while True:
-            print(f"Current token in expression: {self.current_token}")  # Debugging output
-            operator = self.op()  # Get the operator
-            if operator is None:
-                break  # Exit loop if no valid operator found
-            print(f"Operator found: {operator}")  # Debugging output
-            terms.append({'op': operator, 'term': self.term()})
-        return {
-            'type': 'expression',
-            'terms': terms
-        }
+        expr = {'type': 'expression', 'terms': []}
+
+        # Parse the first term
+        expr['terms'].append(self.term())
+
+        # Parse (op term)* - handle additional terms
+        while self.lookahead('+', '-', '*', '/', '&', '|', '<', '>', '='):  # Check for operator
+            op = self.processOperator()
+            term = self.term()  # Parse the next term
+            expr['terms'].append({'op': op})
+            expr['terms'].append(term)
+
+        return expr
 
     def term(self):
         """
-        term : integerConstant | stringConstant | keywordConstant
-              | varName | varName '[' expression ']' | subroutineCall
+        term : integerConstant|stringConstant|keywordConstant
+              |varName|varName '[' expression ']'|subroutineCall
               | '(' expression ')' | unaryOp term
         """
-        token = self.current_token
+        token = self.lexer.look()
+
         if token['type'] == 'IntegerConstant':
-            self.advance()
-            return {'type': 'integerConstant', 'value': token['token']}
-        elif token['type'] == 'StringConstant':
-            self.advance()
-            return {'type': 'stringConstant', 'value': token['token']}
-        elif token['token'] in ['true', 'false', 'null', 'this']:
-            self.advance()
-            return {'type': 'keywordConstant', 'value': token['token']}
-        elif token['type'] == 'identifier':
-            var_name = self.varName()
-            if self.current_token and self.current_token['token'] == '[':
-                self.process('[')
-                index_expr = self.expression()
-                self.process(']')
-                return {
-                    'type': 'arrayAccess',
-                    'varName': var_name,
-                    'indexExpr': index_expr
-                }
-            elif self.current_token and self.current_token['token'] == '(':
-                return self.subroutineCall()  # Handle subroutine call.
-            return {'type': 'varName', 'name': var_name}
-        elif token['token'] == '(':
+            return {'type': 'term', 'subType': 'integerConstant', 'value': self.lexer.next()['token']}
+        elif self.lookahead('('):  # Handle grouped expressions
             self.process('(')
-            expr = self.expression()
-            self.process(')')
-            return expr
-        elif token['token'] in ['-', '~']:
-            unary_operator = self.current_token['token']
-            self.advance()
-            return {
-                'type': 'unaryExpression',
-                'op': unary_operator,
-                'term': self.term()
-            }
+            expr = self.expression()  # Parse the inner expression
+            self.process(')')  # Consume closing parenthesis
+            return {'type': 'term', 'subType': 'expression', 'value': expr}
+        elif self.lookahead('-', '~'):  # Unary operation
+            op = self.unaryOp()
+            term = self.term()
+            return {'type': 'term', 'subType': 'unaryOp', 'op': op, 'term': term}
+        elif self.lookahead('true', 'false', 'null', 'this'):  # Keyword constants
+            return {'type': 'term', 'subType': 'keywordConstant', 'value': self.KeywordConstant()}
+        elif token['type'] == 'identifier':  # Check for identifiers
+            var_name = self.processIdentifier()  # Consume the identifier
+            if self.lookahead('['):  # Array access: varName[expression]
+                self.process('[')
+                index = self.expression()
+                self.process(']')
+                return {'type': 'term', 'subType': 'arrayAccess', 'name': var_name, 'index': index}
+            elif self.lookahead('(') or self.lookahead('.'):  # Subroutine call
+                return self.subroutineCall()
+            else:  # Standalone variable
+                return {'type': 'term', 'subType': 'varName', 'name': var_name}
+        elif self.lookahead('\"'):  # String constants
+            return {'type': 'term', 'subType': 'stringConstant', 'value': self.lexer.next()['token']}
         else:
             self.error(token)
 
     def subroutineCall(self):
         """
-        subroutineCall : subroutineName '(' expressionList ')'
-                       | (className | varName) '.' subroutineName '(' expressionList ')'
+        Handles a subroutine call, which can be in the form:
+        1. subroutineName(expressionList)
+        2. objectName.subroutineName(expressionList)
         """
-        if self.current_token['type'] == 'identifier':
-            subroutine_name = self.subroutineName()
-            self.process('(')
-            expression_list = self.expressionList()
-            self.process(')')
-            return {'type': 'subroutineCall', 'name': subroutine_name, 'args': expression_list}
-        elif self.current_token['token'] in ['varName', 'className']:
-            class_or_var = self.className()  # Using varName or className
-            self.process('.')
-            subroutine_name = self.subroutineName()
-            self.process('(')
-            expression_list = self.expressionList()
-            self.process(')')
-            return {'type': 'subroutineCall', 'classOrVar': class_or_var, 'name': subroutine_name,
-                    'args': expression_list}
+        identifier = self.processIdentifier()  # Process the first identifier (object or subroutine name)
+
+        if self.lookahead() and self.lookahead()['type'] == 'symbol' and self.lookahead()['token'] == '.':
+            # Method or object call (e.g., Keyboard.readInt())
+            self.process('.')  # Consume the '.'
+
+            if self.lookahead()['type'] != 'identifier':
+                raise SyntaxError(f"Expected method name after '.', but got {self.lookahead()}")
+
+            subroutine_name = self.processIdentifier()  # Handle the method name
+            self.process('(')  # Process the opening '('
+            args = self.expressionList()  # Parse the expression list (arguments)
+            self.process(')')  # Process the closing ')'
+
+            return {
+                'type': 'subroutineCall',
+                'object': identifier,  # The object or class (e.g., 'Keyboard')
+                'name': subroutine_name,  # The method name (e.g., 'readInt')
+                'args': args,  # Parsed argument list
+            }
+
+        elif self.lookahead() and self.lookahead()['type'] == 'symbol' and self.lookahead()['token'] == '(':
+            # Subroutine call without an object (e.g., doSomething())
+            self.process('(')  # Process the opening '('
+            args = self.expressionList()  # Parse the expression list (arguments)
+            self.process(')')  # Process the closing ')'
+
+            return {
+                'type': 'subroutineCall',
+                'name': identifier,  # Subroutine name (e.g., 'main')
+                'args': args,  # Parsed argument list
+            }
+
         else:
-            self.error(self.current_token)
+            raise SyntaxError(f"Invalid subroutine call syntax: {identifier}")
+
+    def lookahead_identifier(self):
+        """
+        Checks if the next token is an identifier.
+        Returns:
+            bool: True if the next token's type is 'identifier', otherwise False.
+        """
+        next_token = self.lookahead()  # Peek at the next token without consuming it
+        return next_token and next_token.get('type') == 'identifier'
+
+    def lookahead_keyword(self, expected_keyword):
+        """
+        Checks if the next token is a specific keyword.
+        Args:
+            expected_keyword (str): The keyword to check for.
+        Returns:
+            bool: True if the next token matches the keyword, otherwise False.
+        """
+        next_token = self.lookahead()
+        return next_token and next_token.get('type') == 'keyword' and next_token.get('token') == expected_keyword
+
+    def lookahead_symbol(self, expected_symbol):
+        """
+        Checks if the next token is a specific symbol.
+        Args:
+            expected_symbol (str): The symbol to check for (e.g., '(' or ')').
+        Returns:
+            bool: True if the next token matches the symbol, otherwise False.
+        """
+        next_token = self.lookahead()
+        return next_token and next_token.get('type') == 'symbol' and next_token.get('token') == expected_symbol
 
     def expressionList(self):
-        args = []
+        """
+        expressionList : (expression (',' expression)*)?
+        """
+        expressions = []
+        if not self.lookahead(')'):
+            expressions.append(self.expression())
+            while self.lookahead(','):
+                self.process(',')
+                expressions.append(self.expression())
+        return expressions
 
-        # Check if there are any arguments (if the next token is not ')')
-        if self.current_token['token'] != ')':
-            args.append(self.expression())  # Parse the first expression
-
-            # Parse additional arguments (comma-separated)
-            while self.current_token['token'] == ',':
-                self.advance()  # Consume ','
-                args.append(self.expression())  # Parse the next expression
-
-        return args
 
     def op(self):
         """
-        op : '+' | '-' | '*' | '/' | '&' | '|' | '<' | '>' | '='
+        op : '+'|'-'|'*'|'/'|'&'|'|'|'<'|'>'|'='
         """
-        valid_operators = {
-            '+': 'plus',
-            '-': 'minus',
-            '*': 'star',
-            '/': 'slash',
-            '&': 'ampersand',
-            '|': 'pipe',
-            '<': 'lt',
-            '>': 'gt',
-            '=': 'eq'
-        }
-        token_value = self.current_token['token']
-        if token_value in valid_operators:
-            self.advance()  # Consume the token
-            return valid_operators[token_value]
-        return None
+        return self.process(self.lexer.next()['token'])
 
     def unaryOp(self):
         """
-        unaryOp : '-' | '~'
+        unaryop : '-'|'~'
         """
-        return self.current_token['token']
+        return self.process(self.lexer.next()['token'])
 
     def KeywordConstant(self):
         """
-        KeyWordConstant : 'true' | 'false' | 'null' | 'this'
+        KeyWordConstant : 'true'|'false'|'null'|'this'
         """
-        if self.current_token['token'] in ['true', 'false', 'null', 'this']:
-            value = self.current_token['token']
-            self.advance()
-            return value
-        else:
-            self.error(self.current_token)
+        return self.process(self.lexer.next()['token'])
 
-    def process(self, expected_token):
-        """Check for the expected token and advance. Raise an error if not found."""
-        if self.current_token['token'] == expected_token:
-            self.advance()
+    def process(self, expected):
+        token = self.lexer.next()
+        if token is not None and token['token'] == expected:
+            return token['token']
         else:
-            self.error(self.current_token)
+            self.error(token)
+
+    def processOperator(self):
+        """
+        Consumes an operator token and returns its value.
+        Valid operators: +, -, *, /, &, |, <, >, =
+        """
+        token = self.lexer.look()  # Peek at the current token
+        if token['token'] in ('+', '-', '*', '/', '&', '|', '<', '>', '='):
+            return self.lexer.next()['token']  # Consume and return the operator
+        else:
+            self.error(f"Unexpected token: {token}, expected an operator.")
+
+    def processIdentifier(self):
+        token = self.lexer.next()
+        if token is not None and token['type'] == 'identifier':
+            return token['token']
+        else:
+            self.error(token)
+
+    def lookahead(self, *expected):
+        """
+        Checks if the next token matches one of the expected tokens.
+        Supports both token and type matching.
+        Expected can include:
+        - Strings (token values)
+        - Tuples (type, token value)
+        """
+        token = self.lexer.look()
+        if token is None:
+            print(f"Lookahead failed: No token available, expected {expected}")
+            return False
+
+        for exp in expected:
+            if isinstance(exp, tuple):  # Match (type, value)
+                if token['type'] == exp[0] and token['token'] == exp[1]:
+                    print(f"Lookahead matched: {token} (expected {exp})")
+                    return True
+            elif token['token'] == exp:  # Match token value
+                print(f"Lookahead matched: {token['token']} (expected {exp})")
+                return True
+
+        print(f"Lookahead failed: {token} not in {expected}")
+        return False
 
     def error(self, token):
-        """Handle parsing errors."""
         if token is None:
             print("Syntax error: end of file")
         else:

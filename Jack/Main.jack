@@ -1,12 +1,8 @@
-class Countdown {
-    function void start(int startNumber) {
-        var int i;
+class Main {
 
-        let i = startNumber;
-        while (i > 0) {
-            do Output.printInt(1 + (2 * 3));
-            let i = i - 1; // Decrement i
-        }
-        return;
-    }
+   function void main() {
+      do Output.printInt(1 + (2 * 3));
+      return;
+   }
+
 }

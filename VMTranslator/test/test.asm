@@ -8,5 +8,11 @@
 
 
 //code de test/test.vm
-	//push constant 7
-    Code assembleur de {'line': 1, 'col': 1, 'type': 'push', 'segment': 'constant', 'parameter': '7'}
+	// push constant 10
+    @ 10
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1

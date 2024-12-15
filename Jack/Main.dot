@@ -5,202 +5,178 @@
         n1 [shape="invhouse",label="class"];
         n0 -- n1 [label=""];
         
-        n2 [label=Countdown];
-        n1 -- n2[label="className"]
+        n2 [label=Main];
+        n1 -- n2[label="name"]
         
         n3 [shape="point",label=""];
-        n1 -- n3 [label="classVarDecs"];
+        n1 -- n3 [label="classVarDec"];
         
         n4 [shape="point",label=""];
-        n1 -- n4 [label="subroutineDecs"];
+        n1 -- n4 [label="subroutineDec"];
         
         n5 [shape="invhouse",label="subroutineDec"];
         n4 -- n5 [label=""];
         
         n6 [label=function];
-        n5 -- n6[label="subroutineKind"]
+        n5 -- n6[label="subroutineType"]
         
         n7 [label=void];
         n5 -- n7[label="returnType"]
         
-        n8 [shape="invhouse",label="identifier"];
-        n5 -- n8 [label="subroutineName"];
+        n8 [label=main];
+        n5 -- n8[label="name"]
         
-        n9 [label=start];
-        n8 -- n9[label="token"]
+        n9 [shape="point",label=""];
+        n5 -- n9 [label="parameters"];
         
-        n10 [shape="point",label=""];
-        n5 -- n10 [label="parameters"];
+        n10 [shape="invhouse",label="subroutineBody"];
+        n5 -- n10 [label="body"];
         
-        n11 [shape="invhouse",label="int"];
-        n10 -- n11 [label=""];
+        n11 [shape="point",label=""];
+        n10 -- n11 [label="vars"];
         
-        n12 [label=startNumber];
-        n11 -- n12[label="name"]
+        n12 [shape="invhouse",label="varDec"];
+        n11 -- n12 [label=""];
         
-        n13 [shape="invhouse",label="subroutineBody"];
-        n5 -- n13 [label="body"];
+        n13 [label=int];
+        n12 -- n13[label="varType"]
         
         n14 [shape="point",label=""];
-        n13 -- n14 [label="varDecs"];
+        n12 -- n14 [label="vars"];
         
-        n15 [shape="invhouse",label="varDec"];
-        n14 -- n15 [label=""];
+        n15 [label=a];
+        n14 -- n15[label=""]
         
-        n16 [label=int];
-        n15 -- n16[label="varType"]
+        n16 [label=b];
+        n14 -- n16[label=""]
         
-        n17 [shape="point",label=""];
-        n15 -- n17 [label="varNames"];
+        n17 [label=sum];
+        n14 -- n17[label=""]
         
-        n18 [label=i];
-        n17 -- n18[label=""]
+        n18 [shape="point",label=""];
+        n10 -- n18 [label="statements"];
         
-        n19 [shape="point",label=""];
-        n13 -- n19 [label="statements"];
+        n19 [shape="invhouse",label="letStatement"];
+        n18 -- n19 [label=""];
         
-        n20 [shape="invhouse",label="letStatement"];
-        n19 -- n20 [label=""];
+        n20 [label=a];
+        n19 -- n20[label="name"]
         
-        n21 [label=i];
-        n20 -- n21[label="varName"]
+        n21 [label="None"];
+        n19 -- n21[label="index"]
         
-        n22 [label="None"];
-        n20 -- n22[label="indexExpr"]
+        n22 [shape="invhouse",label="expression"];
+        n19 -- n22 [label="value"];
         
-        n23 [shape="invhouse",label="expression"];
-        n20 -- n23 [label="valueExpr"];
+        n23 [shape="point",label=""];
+        n22 -- n23 [label="terms"];
         
-        n24 [shape="point",label=""];
-        n23 -- n24 [label="terms"];
+        n24 [shape="invhouse",label="term"];
+        n23 -- n24 [label=""];
         
-        n25 [shape="invhouse",label="varName"];
-        n24 -- n25 [label=""];
+        n25 [label=integerConstant];
+        n24 -- n25[label="subType"]
         
-        n26 [label=startNumber];
-        n25 -- n26[label="name"]
+        n26 [label=5];
+        n24 -- n26[label="value"]
         
-        n27 [shape="invhouse",label="whileStatement"];
-        n19 -- n27 [label=""];
+        n27 [shape="invhouse",label="letStatement"];
+        n18 -- n27 [label=""];
         
-        n28 [shape="invhouse",label="expression"];
-        n27 -- n28 [label="condition"];
+        n28 [label=b];
+        n27 -- n28[label="name"]
         
-        n29 [shape="point",label=""];
-        n28 -- n29 [label="terms"];
+        n29 [label="None"];
+        n27 -- n29[label="index"]
         
-        n30 [shape="invhouse",label="varName"];
-        n29 -- n30 [label=""];
+        n30 [shape="invhouse",label="expression"];
+        n27 -- n30 [label="value"];
         
-        n31 [label=i];
-        n30 -- n31[label="name"]
+        n31 [shape="point",label=""];
+        n30 -- n31 [label="terms"];
         
-        n32 [shape="invhouse",label="dict"];
-        n29 -- n32 [label=""];
+        n32 [shape="invhouse",label="term"];
+        n31 -- n32 [label=""];
         
-        n33 [label=gt];
-        n32 -- n33[label="op"]
+        n33 [label=integerConstant];
+        n32 -- n33[label="subType"]
         
-        n34 [shape="invhouse",label="integerConstant"];
-        n32 -- n34 [label="term"];
+        n34 [label=7];
+        n32 -- n34[label="value"]
         
-        n35 [label=0];
-        n34 -- n35[label="value"]
+        n35 [shape="invhouse",label="letStatement"];
+        n18 -- n35 [label=""];
         
-        n36 [shape="point",label=""];
-        n27 -- n36 [label="bodyStatements"];
+        n36 [label=sum];
+        n35 -- n36[label="name"]
         
-        n37 [shape="invhouse",label="doStatement"];
-        n36 -- n37 [label=""];
+        n37 [label="None"];
+        n35 -- n37[label="index"]
         
-        n38 [label=Output];
-        n37 -- n38[label="object"]
+        n38 [shape="invhouse",label="expression"];
+        n35 -- n38 [label="value"];
         
-        n39 [label=printInt];
-        n37 -- n39[label="method"]
+        n39 [shape="point",label=""];
+        n38 -- n39 [label="terms"];
         
-        n40 [shape="point",label=""];
-        n37 -- n40 [label="arguments"];
+        n40 [shape="invhouse",label="term"];
+        n39 -- n40 [label=""];
         
-        n41 [shape="invhouse",label="expression"];
-        n40 -- n41 [label=""];
+        n41 [label=varName];
+        n40 -- n41[label="subType"]
         
-        n42 [shape="point",label=""];
-        n41 -- n42 [label="terms"];
+        n42 [label=a];
+        n40 -- n42[label="name"]
         
-        n43 [shape="invhouse",label="integerConstant"];
-        n42 -- n43 [label=""];
+        n43 [shape="invhouse",label="dict"];
+        n39 -- n43 [label=""];
         
-        n44 [label=1];
-        n43 -- n44[label="value"]
+        n44 [label=+];
+        n43 -- n44[label="op"]
         
-        n45 [shape="invhouse",label="dict"];
-        n42 -- n45 [label=""];
+        n45 [shape="invhouse",label="term"];
+        n39 -- n45 [label=""];
         
-        n46 [label=plus];
-        n45 -- n46[label="op"]
+        n46 [label=varName];
+        n45 -- n46[label="subType"]
         
-        n47 [shape="invhouse",label="expression"];
-        n45 -- n47 [label="term"];
+        n47 [label=b];
+        n45 -- n47[label="name"]
         
-        n48 [shape="point",label=""];
-        n47 -- n48 [label="terms"];
+        n48 [shape="invhouse",label="doStatement"];
+        n18 -- n48 [label=""];
         
-        n49 [shape="invhouse",label="integerConstant"];
-        n48 -- n49 [label=""];
+        n49 [shape="invhouse",label="subroutineCall"];
+        n48 -- n49 [label="call"];
         
-        n50 [label=2];
-        n49 -- n50[label="value"]
+        n50 [label=Output];
+        n49 -- n50[label="object"]
         
-        n51 [shape="invhouse",label="dict"];
-        n48 -- n51 [label=""];
+        n51 [label=printInt];
+        n49 -- n51[label="name"]
         
-        n52 [label=star];
-        n51 -- n52[label="op"]
+        n52 [shape="point",label=""];
+        n49 -- n52 [label="args"];
         
-        n53 [shape="invhouse",label="integerConstant"];
-        n51 -- n53 [label="term"];
+        n53 [shape="invhouse",label="expression"];
+        n52 -- n53 [label=""];
         
-        n54 [label=3];
-        n53 -- n54[label="value"]
+        n54 [shape="point",label=""];
+        n53 -- n54 [label="terms"];
         
-        n55 [shape="invhouse",label="letStatement"];
-        n36 -- n55 [label=""];
+        n55 [shape="invhouse",label="term"];
+        n54 -- n55 [label=""];
         
-        n56 [label=i];
-        n55 -- n56[label="varName"]
+        n56 [label=varName];
+        n55 -- n56[label="subType"]
         
-        n57 [label="None"];
-        n55 -- n57[label="indexExpr"]
+        n57 [label=sum];
+        n55 -- n57[label="name"]
         
-        n58 [shape="invhouse",label="expression"];
-        n55 -- n58 [label="valueExpr"];
+        n58 [shape="invhouse",label="returnStatement"];
+        n18 -- n58 [label=""];
         
-        n59 [shape="point",label=""];
-        n58 -- n59 [label="terms"];
-        
-        n60 [shape="invhouse",label="varName"];
-        n59 -- n60 [label=""];
-        
-        n61 [label=i];
-        n60 -- n61[label="name"]
-        
-        n62 [shape="invhouse",label="dict"];
-        n59 -- n62 [label=""];
-        
-        n63 [label=minus];
-        n62 -- n63[label="op"]
-        
-        n64 [shape="invhouse",label="integerConstant"];
-        n62 -- n64 [label="term"];
-        
-        n65 [label=1];
-        n64 -- n65[label="value"]
-        
-        n66 [shape="invhouse",label="returnStatement"];
-        n19 -- n66 [label=""];
-        
-        n67 [label="None"];
-        n66 -- n67[label="expression"]
+        n59 [label="None"];
+        n58 -- n59[label="expression"]
         }
         
